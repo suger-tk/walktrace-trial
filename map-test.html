@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>WALKTRACE 地図接続テスト</title>
+<style>*{box-sizing:border-box}body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;background:#f5f7fb;color:#13213a}main{max-width:700px;margin:auto;padding:20px 16px 38px}h1{font-size:22px;margin:0 0 6px}p{margin:6px 0 14px;color:#4e5c72}label{display:block;font-weight:700;margin:15px 0 5px}input{display:block;width:100%;font-size:16px;padding:12px;border:1px solid #aab6cd;border-radius:10px}button{font:inherit;font-weight:700;background:#3067e9;border:0;color:#fff;border-radius:10px;min-height:46px;padding:10px 16px;margin-top:10px;width:100%}#map{margin-top:18px;width:100%;height:360px;border:1px solid #c7d0e1;border-radius:12px;background:#e8ebed}#result{background:#e6ecf6;border-radius:10px;padding:12px;margin-top:14px;white-space:pre-wrap;overflow-wrap:anywhere}small{display:block;color:#61728b;margin-top:12px}a{color:#3067e9}</style></head>
+<body><main><h1>WALKTRACE｜地図接続テスト</h1><p>本体アプリを変更せずに、Googleマップの接続と描画を確認するページです。GPS・位置情報・履歴は使用しません。</p>
+<label for="key">Google Maps デモキー</label><input id="key" type="password" autocomplete="off" placeholder="APIキーを入力"><button id="go">接続テストを開始</button>
+<div id="result" role="status" aria-live="polite">未実行。キーはこのページ内でのみ使用し、端末へ保存しません。</div><div id="map" aria-label="Googleマップ接続テスト"></div><small>テスト地図の中心は東京駅（公開ランドマーク）。現在地・個人情報は扱いません。失敗時は表示された診断状況だけを共有し、APIキー自体は共有しないでください。</small>
+</main><script>
+(()=>{'use strict';
+const result=document.getElementById('result'),input=document.getElementById('key'),button=document.getElementById('go');
+let apiLoaded=false,mapReady=false,tilesLoaded=false,idle=false,authFailed=false;
+function state(note=''){result.textContent='API読み込み：'+(apiLoaded?'成功':'未確認')+'\n認証：'+(authFailed?'失敗の通知あり':'未判定')+'\n地図初期化：'+(mapReady?'成功':'未確認')+'\n地図待機完了：'+(idle?'確認':'未確認')+'\n道路タイル表示：'+(tilesLoaded?'完了':'未確認')+(note?'\n'+note:'');}
+state();
+window.gm_authFailure=()=>{authFailed=true;state('Google Maps が認証エラーを報告しました。キーの有効性・制限・利用枠を確認してください。');};
+button.addEventListener('click',async()=>{
+ const key=input.value.trim();if(!key){state('キーを入力してください。');return;}
+ button.disabled=true;button.textContent='接続中…';
+ const tag=document.createElement('script');tag.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&v=quarterly&callback=walktraceProbeReady';tag.async=true;
+ const load=new Promise((resolve,reject)=>{let timer=setTimeout(()=>reject(new Error('APIスクリプト読み込みが20秒で完了しませんでした')),20000);window.walktraceProbeReady=()=>{clearTimeout(timer);resolve()};tag.onerror=()=>{clearTimeout(timer);reject(new Error('Google Mapsのスクリプトを読み込めませんでした'))};});
+ document.head.appendChild(tag);
+ try{await load;apiLoaded=true;state();if(authFailed)return;
+ const map=new google.maps.Map(document.getElementById('map'),{center:{lat:35.681236,lng:139.767125},zoom:14,mapTypeControl:false,fullscreenControl:false,streetViewControl:false,renderingType:google.maps.RenderingType?.RASTER});mapReady=true;state();
+ map.addListener('idle',()=>{idle=true;state('地図の描画が落ち着きました（道路表示の完了とは別）。')});
+ map.addListener('tilesloaded',()=>{tilesLoaded=true;state('道路タイル読み込み完了。Googleマップの基本表示は正常です。')});
+ setTimeout(()=>{if(!tilesLoaded&&!authFailed)state('20秒以内にタイル完了通知がありません。通信・デモキー利用枠・iPhoneの描画状態が原因の可能性があります（自動で失敗判定はしません）。')},20000);
+ }catch(e){state('接続エラー：'+e.message)}finally{button.disabled=false;button.textContent='接続テストを開始';input.value='';}
+});
+})();
+</script></body></html>
